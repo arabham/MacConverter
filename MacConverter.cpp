@@ -58,9 +58,9 @@ int main()
 string stripMac(string inputMac)
 {
     string stripChars = " ,.:-";
-    for (char c : stripChars)
+    for (char b : stripChars)
     {
-        inputMac.erase(remove(inputMac.begin(), inputMac.end(), c), inputMac.end());
+        inputMac.erase(remove(inputMac.begin(), inputMac.end(), b), inputMac.end());
     }
     string lowerMac;
     for (int i = 0; i < inputMac.length(); i++)
