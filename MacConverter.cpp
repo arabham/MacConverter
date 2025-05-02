@@ -2,18 +2,29 @@
 
 #include <string>
 #include <vector>
-#include <iostream>
+#include <chrono>
+#include <iomanip>
+#include <fstream>
 #include <numeric>
+#include <ShlObj.h>
+#include <iostream>
 #include <algorithm>
 #include <windows.h>
+#pragma comment(lib, "shell32.lib")
 
 using namespace std;
 
+wstring getDocumentsFolderPath();
+void formatMacs(vector<string>& macs);
 string stripMac(string inputMac);
 string formatColon(string strippedMac);
 string formatDot(string strippedMac);
 string formatDash(string strippedMac);
+void logMacs(vector<string>& macs);
 bool AskToRunAgain();
+
+wstring documentsPath = getDocumentsFolderPath();
+wstring logPath = documentsPath + L"\\" + L"mac.log";
 
 
 int main()
@@ -39,20 +50,13 @@ int main()
             strippedMacs.push_back(stripMac(*it));
         }
 
-        vector<string>::iterator it2;
-        vector<string> formattedMacs;
-        for (it2 = strippedMacs.begin(); it2 != strippedMacs.end(); it2++)
-        {
-            formattedMacs.push_back(*it2);
-            formattedMacs.push_back(formatColon(*it2));
-            formattedMacs.push_back(formatDot(*it2));
-            formattedMacs.push_back(formatDash(*it2));
-            formattedMacs.push_back("");
-            // cout << *it2 << '\n';
-        }
+        formatMacs(strippedMacs);
+        vector<string> macs = strippedMacs;
+
+        logMacs(macs);
 
         vector<string>::iterator it3;
-        for (it3 = formattedMacs.begin(); it3 != formattedMacs.end(); it3++)
+        for (it3 = macs.begin(); it3 != macs.end(); it3++)
         {
             cout << *it3 << '\n';
         }
@@ -64,7 +68,7 @@ int main()
         };
         
         // makes the input vector into a string for conversion to c string
-        string macStrings = accumulate(next(formattedMacs.begin()), formattedMacs.end(), formattedMacs[0], newLineFold);
+        string macStrings = accumulate(next(macs.begin()), macs.end(), macs[0], newLineFold);
         const char* macChars = macStrings.c_str();
 
         // saves c string to clipboard
@@ -83,9 +87,25 @@ int main()
         }
 
         cout << "All the conversions have been output to the console, and in your copy buffer." << endl;
+        wstring logPathMessage = L"All the conversion have been saved to: " + logPath;
+        wcout << logPathMessage << endl;
+
         bRunAgain = AskToRunAgain();
     } while (bRunAgain);
     return 0;
+}
+
+wstring getDocumentsFolderPath()
+{
+    PWSTR path = nullptr;
+    HRESULT hr = SHGetKnownFolderPath(FOLDERID_Documents, 0, nullptr, &path);
+    if (SUCCEEDED(hr))
+    {
+        wstring documentsPath(path);
+        CoTaskMemFree(path);
+        return documentsPath;
+    }
+    return L"";
 }
 
 string stripMac(string inputMac)
@@ -96,11 +116,37 @@ string stripMac(string inputMac)
         inputMac.erase(remove(inputMac.begin(), inputMac.end(), b), inputMac.end());
     }
     string lowerMac;
-    for (int i = 0; i < inputMac.length(); i++)
+    for (size_t i = 0; i < inputMac.length(); i++)
     {
         lowerMac += tolower(inputMac[i]);
     }
     return (lowerMac);
+}
+
+void formatMacs(vector<string>& macs)
+{
+    vector<string>::iterator it;
+    vector<string> formattedMacs;
+    vector<string> colonMacs;
+    vector<string> dotMacs;
+    vector<string> dashMacs;
+
+    for (it = macs.begin(); it != macs.end(); it++)
+    {
+        formattedMacs.push_back(*it);
+        colonMacs.push_back(formatColon(*it));
+        dotMacs.push_back(formatDot(*it));
+        dashMacs.push_back(formatDash(*it));
+        // cout << *it << '\n';
+    }
+    formattedMacs.push_back("");
+    formattedMacs.insert(end(formattedMacs), begin(colonMacs), end(colonMacs));
+    formattedMacs.push_back("");
+    formattedMacs.insert(end(formattedMacs), begin(dotMacs), end(dotMacs));
+    formattedMacs.push_back("");
+    formattedMacs.insert(end(formattedMacs), begin(dashMacs), end(dashMacs));
+    
+    macs = formattedMacs;
 }
 
 string formatColon(string strippedMac)
@@ -152,10 +198,46 @@ string formatDash(string strippedMac)
     return formattedMac;
 }
 
+void logMacs(vector<string>& macs)
+{
+    ofstream logFile(logPath, ios_base::app);
+    if (logFile.is_open())
+    {
+        auto now = chrono::system_clock::now();
+        time_t nowTime = chrono::system_clock::to_time_t(now);
+        struct tm timeInfo;
+        if (localtime_s(&timeInfo, &nowTime) == 0)
+        {
+            logFile << put_time(&timeInfo, "%Y-%m-%d %H:%M:%S") << endl;
+
+            vector<string>::iterator it;
+            for (it = macs.begin(); it != macs.end(); it++)
+            {
+                logFile << "\t" << *it << endl;
+            }
+            logFile << "\n";
+        }
+        else
+        {
+            cerr << "Failed to get local time." << endl;
+        }
+        logFile.close();
+    }
+    else
+    {
+        cerr << "Error opening log file!" << endl;
+    }
+
+}
+
 bool AskToRunAgain()
 {
     cout << "Do you want to run again (y/n)? ";
     string Response = "";
     getline(cin, Response);
+    if (Response.empty())
+    {
+        return true;
+    }
     return (Response[0] == 'y') || (Response[0] == 'Y');
 }
