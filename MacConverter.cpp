@@ -32,6 +32,9 @@ int main()
     bool bRunAgain = false;
     do
     {
+		// Prevent system from sleeping and display from turning off
+		SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED);
+
         cout << "Enter as many macs as you would like converted then, press enter twice:" << endl;
         string mac;
         vector<string> macVectors;
@@ -92,6 +95,9 @@ int main()
 
         bRunAgain = AskToRunAgain();
     } while (bRunAgain);
+
+	// To allow the system to sleep again (when your program no longer needs to prevent it)
+	SetThreadExecutionState(ES_CONTINUOUS);
     return 0;
 }
 
